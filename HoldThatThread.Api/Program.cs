@@ -1,7 +1,21 @@
+using Azure.Identity;
 using HoldThatThread.Application;
 using HoldThatThread.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Azure Key Vault for secrets management in production
+if (builder.Environment.IsProduction())
+{
+    var keyVaultEndpoint = builder.Configuration["KeyVault:VaultUri"];
+    if (!string.IsNullOrEmpty(keyVaultEndpoint))
+    {
+        // Use Managed Identity (DefaultAzureCredential) to authenticate to Key Vault
+        builder.Configuration.AddAzureKeyVault(
+            new Uri(keyVaultEndpoint),
+            new DefaultAzureCredential());
+    }
+}
 
 // Add services to the container
 builder.Services.AddOpenApi();
