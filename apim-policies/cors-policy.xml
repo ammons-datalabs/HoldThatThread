@@ -1,0 +1,62 @@
+<!--
+    CORS Policy for HoldThatThread API
+
+    Configures Cross-Origin Resource Sharing to allow web applications
+    from specific domains to access the API.
+
+    Adjust allowed-origins based on your deployment environment.
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <cors allow-credentials="true">
+            <allowed-origins>
+                <!-- Production frontend -->
+                <origin>https://holdthatthread.com</origin>
+                <origin>https://www.holdthatthread.com</origin>
+
+                <!-- Staging environment -->
+                <origin>https://staging.holdthatthread.com</origin>
+
+                <!-- Development (localhost) -->
+                <origin>http://localhost:3000</origin>
+                <origin>http://localhost:5173</origin>
+                <origin>http://localhost:8080</origin>
+            </allowed-origins>
+
+            <allowed-methods preflight-result-max-age="3600">
+                <method>GET</method>
+                <method>POST</method>
+                <method>PUT</method>
+                <method>DELETE</method>
+                <method>OPTIONS</method>
+            </allowed-methods>
+
+            <allowed-headers>
+                <header>Content-Type</header>
+                <header>Authorization</header>
+                <header>Accept</header>
+                <header>X-Requested-With</header>
+            </allowed-headers>
+
+            <expose-headers>
+                <header>X-Rate-Limit-Limit</header>
+                <header>X-Rate-Limit-Remaining</header>
+                <header>X-Rate-Limit-Reset</header>
+            </expose-headers>
+        </cors>
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+    </outbound>
+
+    <on-error>
+        <base />
+    </on-error>
+</policies>

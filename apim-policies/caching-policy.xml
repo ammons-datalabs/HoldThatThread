@@ -1,0 +1,58 @@
+<!--
+    Caching Policy for HoldThatThread API
+
+    WARNING: This should ONLY be applied to idempotent, read-only operations.
+    DO NOT cache streaming endpoints or operations that modify state.
+
+    Suitable for:
+    - Public content endpoints (if added in future)
+    - Static resource lookups
+
+    NOT suitable for:
+    - /api/chat/main/stream (streaming, unique responses)
+    - /api/chat/digress/* (personalized, session-specific)
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Example: Cache configuration endpoint responses -->
+        <cache-lookup vary-by-developer="false"
+                      vary-by-developer-groups="false"
+                      downstream-caching-type="none">
+            <vary-by-query-parameter>version</vary-by-query-parameter>
+        </cache-lookup>
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+
+        <!-- Store successful responses in cache for 5 minutes -->
+        <cache-store duration="300" />
+
+        <!-- Add cache headers to response -->
+        <set-header name="Cache-Control" exists-action="override">
+            <value>public, max-age=300</value>
+        </set-header>
+    </outbound>
+
+    <on-error>
+        <base />
+    </on-error>
+</policies>
+
+<!--
+    NOTE FOR HOLDTHATTHREAD:
+    =========================
+    Caching is generally NOT recommended for this API because:
+    1. Main chat endpoint streams unique AI-generated responses
+    2. Digression endpoints are session-specific and personalized
+    3. Responses should never be reused across different users
+
+    This policy template is provided for reference only.
+    Consider caching only if you add public, read-only endpoints in the future.
+-->
