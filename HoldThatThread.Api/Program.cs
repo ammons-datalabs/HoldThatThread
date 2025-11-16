@@ -54,13 +54,25 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
 builder.Services.AddSingleton<IDigressionStore, InMemoryDigressionStore>();
 
-// Configure Azure OpenAI
-var azureOpenAiOptions = new AzureOpenAiOptions();
-builder.Configuration.GetSection(AzureOpenAiOptions.SectionName).Bind(azureOpenAiOptions);
-builder.Services.AddSingleton(azureOpenAiOptions);
+// Configure OpenAI provider (choose between OpenAI or Azure OpenAI)
+var provider = builder.Configuration["OpenAIProvider"] ?? "AzureOpenAI";
 
-// Register OpenAI client factory with deployment-specific configuration
-builder.Services.AddSingleton<IOpenAiClientFactory, AzureOpenAiClientFactory>();
+if (provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+{
+    // Use regular OpenAI (api.openai.com)
+    var openAiOptions = new OpenAiOptions();
+    builder.Configuration.GetSection(OpenAiOptions.SectionName).Bind(openAiOptions);
+    builder.Services.AddSingleton(openAiOptions);
+    builder.Services.AddSingleton<IOpenAiClientFactory, OpenAiClientFactory>();
+}
+else
+{
+    // Use Azure OpenAI (default)
+    var azureOpenAiOptions = new AzureOpenAiOptions();
+    builder.Configuration.GetSection(AzureOpenAiOptions.SectionName).Bind(azureOpenAiOptions);
+    builder.Services.AddSingleton(azureOpenAiOptions);
+    builder.Services.AddSingleton<IOpenAiClientFactory, AzureOpenAiClientFactory>();
+}
 
 // Register domain services (they use the factory to get deployment-specific clients)
 builder.Services.AddSingleton<IReasoningService, ReasoningService>();
