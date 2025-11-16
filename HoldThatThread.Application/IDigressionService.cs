@@ -39,4 +39,4 @@ public interface IDigressionService
 
 public record DigressionTurnResult(Guid DigressionId, IReadOnlyList<ChatMessageDto> Messages);
 
-public record ChatMessageDto(string Role, string Content, DateTime Timestamp);
+public record ChatMessageDto(string Role, string Text, DateTime Timestamp);

@@ -53,6 +53,7 @@ builder.Services.AddOpenApi(options =>
 // Register application services
 builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
 builder.Services.AddSingleton<IDigressionStore, InMemoryDigressionStore>();
+builder.Services.AddSingleton<ITurnStore, InMemoryTurnStore>();
 
 // Configure OpenAI provider (choose between OpenAI or Azure OpenAI)
 var provider = builder.Configuration["OpenAIProvider"] ?? "AzureOpenAI";
@@ -88,17 +89,51 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Chat endpoints
-app.MapPost("/api/chat/main/stream", async (
+// Main Chat - Two-step GET SSE pattern (EventSource-compatible)
+app.MapPost("/api/chat/main/turn", async (
     IReasoningService reasoningService,
-    MainChatRequest request,
+    ISessionStore sessionStore,
+    MainChatRequest request) =>
+{
+    var turn = await reasoningService.StartTurnAsync(request.SessionId, request.UserInput);
+
+    // Get session to return initial messages
+    var session = await sessionStore.GetAsync(turn.SessionId ?? Guid.Empty);
+    var initialMessages = session.MainChain
+        .Select(m => new ChatMessageDto(m.Role, m.Content, m.Timestamp))
+        .ToList();
+
+    return Results.Ok(new StartMainTurnResponse(
+        turn.SessionId ?? Guid.Empty,
+        turn.TurnId,
+        initialMessages));
+})
+.WithName("StartTurn")
+.WithSummary("Start a conversation turn (Step 1 for GET SSE)")
+.WithDescription("""
+    Creates a conversation turn and returns a turnId for streaming.
+
+    Two-step pattern for EventSource-compatible streaming:
+    1. POST /api/chat/main/turn → returns turnId
+    2. GET /api/chat/main/stream/{turnId} → SSE stream
+
+    This allows using EventSource API in browsers (which only supports GET).
+
+    Returns the current session's message history in initialMessages.
+    """)
+.WithTags("Main Chat")
+.Produces<StartMainTurnResponse>(200);
+
+app.MapGet("/api/chat/main/stream/{turnId:guid}", async (
+    IReasoningService reasoningService,
+    Guid turnId,
     HttpContext context) =>
 {
     context.Response.Headers.Append("Content-Type", "text/event-stream");
     context.Response.Headers.Append("Cache-Control", "no-cache");
     context.Response.Headers.Append("Connection", "keep-alive");
 
-    await foreach (var evt in reasoningService.MainCallStreamAsync(request.SessionId, request.Message))
+    await foreach (var evt in reasoningService.StreamTurnAsync(turnId))
     {
         var eventType = evt.Type.ToString().ToLower();
         var data = $"event: {eventType}\ndata: {System.Text.Json.JsonSerializer.Serialize(evt)}\n\n";
@@ -106,17 +141,20 @@ app.MapPost("/api/chat/main/stream", async (
         await context.Response.Body.FlushAsync();
     }
 })
-.WithName("MainChatStream")
-.WithSummary("Stream main conversation with reasoning")
+.WithName("StreamTurn")
+.WithSummary("Stream conversation turn via GET SSE (Step 2)")
 .WithDescription("""
-    Streams AI responses with extended reasoning using Server-Sent Events (SSE).
+    Streams the AI response for a conversation turn using Server-Sent Events.
+
+    EventSource-compatible (GET request):
+    - Use with browser EventSource API
+    - Receives 'thought', 'answer', and 'done' events
+    - Automatically cleans up turn after streaming
 
     The response includes three types of events:
-    - 'reasoning': Internal thinking process (streamed in real-time)
-    - 'delimiter': Marks the transition from reasoning to final answer
+    - 'thought': Internal thinking process (streamed in real-time)
     - 'answer': Final response to the user (streamed in real-time)
-
-    Uses the reasoning deployment (e.g., o3-mini) for extended thinking capabilities.
+    - 'done': Signals end of stream (empty text)
     """)
 .WithTags("Main Chat")
 .Produces(200, contentType: "text/event-stream");
@@ -129,7 +167,7 @@ app.MapPost("/api/chat/digress/start", async (
     var digressionId = await digressionService.StartDigressionAsync(
         request.SessionId,
         request.SelectedText,
-        request.InitialUserMessage);
+        request.InitialUserInput);
 
     return Results.Ok(new StartDigressionResponse(digressionId));
 })
@@ -156,7 +194,7 @@ app.MapPost("/api/chat/digress/{digressionId:guid}", async (
 {
     var result = await digressionService.ContinueDigressionAsync(
         digressionId,
-        request.UserMessage);
+        request.UserInput);
 
     return Results.Ok(new DigressionTurnResponse(
         result.DigressionId,
@@ -222,12 +260,13 @@ app.MapDelete("/api/chat/digress/{digressionId:guid}", async (
 app.Run();
 
 // Request/Response models
-record MainChatRequest(Guid? SessionId, string Message);
+record MainChatRequest(Guid? SessionId, string UserInput);
+record StartMainTurnResponse(Guid SessionId, Guid TurnId, IReadOnlyList<ChatMessageDto> InitialMessages);
 
 // Digression DTOs
-record StartDigressionRequest(Guid SessionId, string SelectedText, string? InitialUserMessage);
+record StartDigressionRequest(Guid SessionId, string SelectedText, string? InitialUserInput);
 record StartDigressionResponse(Guid DigressionId);
-record DigressionTurnRequest(string UserMessage);
+record DigressionTurnRequest(string UserInput);
 record DigressionTurnResponse(Guid DigressionId, IReadOnlyList<ChatMessageDto> Messages);
 
 // Make Program accessible to tests

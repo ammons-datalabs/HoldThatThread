@@ -20,48 +20,6 @@ public class ChatEndpointTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task MainStream_ReturnsSSEStream()
-    {
-        // Arrange
-        var client = CreateClientWithMockedServices();
-
-        var request = new
-        {
-            sessionId = (Guid?)null,
-            message = "What is 2+2?"
-        };
-
-        // Act
-        var response = await client.PostAsJsonAsync("/api/chat/main/stream", request);
-
-        // Assert
-        response.EnsureSuccessStatusCode();
-        Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);
-    }
-
-    [Fact]
-    public async Task MainStream_StreamsReasoningThenDelimiterThenAnswer()
-    {
-        // Arrange
-        var client = CreateClientWithMockedServices();
-
-        var request = new
-        {
-            sessionId = (Guid?)null,
-            message = "Test question"
-        };
-
-        // Act
-        var response = await client.PostAsJsonAsync("/api/chat/main/stream", request);
-        var streamContent = await response.Content.ReadAsStringAsync();
-
-        // Assert
-        Assert.Contains("reasoning", streamContent.ToLower());
-        Assert.Contains("---FINAL ANSWER---", streamContent);
-        Assert.Contains("answer", streamContent.ToLower());
-    }
-
-    [Fact]
     public async Task StartDigression_ReturnsDigressionId()
     {
         // Arrange
@@ -205,17 +163,8 @@ public class ChatEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         yield return new ReasoningStreamEvent
         {
             SessionId = sessionId,
-            Type = StreamEventType.Reasoning,
-            Content = "Let me think..."
-        };
-
-        await Task.Yield();
-
-        yield return new ReasoningStreamEvent
-        {
-            SessionId = sessionId,
-            Type = StreamEventType.Delimiter,
-            Content = "---FINAL ANSWER---"
+            Type = StreamEventType.Thought,
+            Text = "Let me think..."
         };
 
         await Task.Yield();
@@ -224,7 +173,16 @@ public class ChatEndpointTests : IClassFixture<WebApplicationFactory<Program>>
         {
             SessionId = sessionId,
             Type = StreamEventType.Answer,
-            Content = "The answer is 4"
+            Text = "The answer is 4"
+        };
+
+        await Task.Yield();
+
+        yield return new ReasoningStreamEvent
+        {
+            SessionId = sessionId,
+            Type = StreamEventType.Done,
+            Text = string.Empty
         };
     }
 }

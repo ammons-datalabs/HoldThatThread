@@ -120,9 +120,9 @@ public class DigressionServiceTests
         Assert.Equal(digression.DigressionId, result.DigressionId);
         Assert.Equal(3, result.Messages.Count); // system + user + assistant
         Assert.Equal("user", result.Messages[1].Role);
-        Assert.Equal("What is this?", result.Messages[1].Content);
+        Assert.Equal("What is this?", result.Messages[1].Text);
         Assert.Equal("assistant", result.Messages[2].Role);
-        Assert.Equal("This is the answer", result.Messages[2].Content);
+        Assert.Equal("This is the answer", result.Messages[2].Text);
     }
 
     [Fact]

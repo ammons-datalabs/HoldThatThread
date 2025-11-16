@@ -5,12 +5,16 @@ namespace HoldThatThread.Application;
 public class ReasoningService : IReasoningService
 {
     private readonly ISessionStore _sessionStore;
+    private readonly ITurnStore _turnStore;
     private readonly IOpenAiClient _openAiClient;
-    private const string DELIMITER = "---FINAL ANSWER---";
 
-    public ReasoningService(ISessionStore sessionStore, IOpenAiClientFactory clientFactory)
+    public ReasoningService(
+        ISessionStore sessionStore,
+        ITurnStore turnStore,
+        IOpenAiClientFactory clientFactory)
     {
         _sessionStore = sessionStore;
+        _turnStore = turnStore;
         _openAiClient = clientFactory.CreateReasoningClient();
     }
 
@@ -44,34 +48,23 @@ public class ReasoningService : IReasoningService
         {
             if (chunk.Type == StreamChunkType.Reasoning)
             {
-                // Yield reasoning chunks to client
+                // Yield thought chunks to client
                 yield return new ReasoningStreamEvent
                 {
                     SessionId = session.Id,
-                    Type = StreamEventType.Reasoning,
-                    Content = chunk.Content
+                    Type = StreamEventType.Thought,
+                    Text = chunk.Content
                 };
             }
             else if (chunk.Type == StreamChunkType.Answer)
             {
-                // First answer chunk - emit delimiter
-                if (answerChunks.Count == 0)
-                {
-                    yield return new ReasoningStreamEvent
-                    {
-                        SessionId = session.Id,
-                        Type = StreamEventType.Delimiter,
-                        Content = DELIMITER
-                    };
-                }
-
                 // Collect answer chunks and yield them
                 answerChunks.Add(chunk.Content);
                 yield return new ReasoningStreamEvent
                 {
                     SessionId = session.Id,
                     Type = StreamEventType.Answer,
-                    Content = chunk.Content
+                    Text = chunk.Content
                 };
             }
         }
@@ -83,5 +76,44 @@ public class ReasoningService : IReasoningService
 
         // Update the session
         await _sessionStore.UpdateAsync(session);
+
+        // Emit done event to signal completion
+        yield return new ReasoningStreamEvent
+        {
+            SessionId = session.Id,
+            Type = StreamEventType.Done,
+            Text = string.Empty
+        };
+    }
+
+    public async Task<ConversationTurn> StartTurnAsync(Guid? sessionId, string userMessage)
+    {
+        if (string.IsNullOrWhiteSpace(userMessage))
+        {
+            throw new ArgumentException("User message cannot be empty", nameof(userMessage));
+        }
+
+        var turn = new ConversationTurn(sessionId, userMessage);
+        await _turnStore.CreateAsync(turn);
+        return turn;
+    }
+
+    public async IAsyncEnumerable<ReasoningStreamEvent> StreamTurnAsync(Guid turnId)
+    {
+        // Get the turn
+        var turn = await _turnStore.GetAsync(turnId);
+        if (turn == null)
+        {
+            throw new InvalidOperationException($"Turn {turnId} not found");
+        }
+
+        // Use the existing streaming logic
+        await foreach (var evt in MainCallStreamAsync(turn.SessionId, turn.UserMessage))
+        {
+            yield return evt;
+        }
+
+        // Clean up the turn after streaming
+        await _turnStore.DeleteAsync(turnId);
     }
 }

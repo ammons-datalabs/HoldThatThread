@@ -24,7 +24,8 @@ public class ReasoningServiceTests
             }));
 
         var mockFactory = CreateMockFactory(mockOpenAi.Object);
-        var service = new ReasoningService(mockStore.Object, mockFactory.Object);
+        var mockTurnStore = new Mock<ITurnStore>();
+        var service = new ReasoningService(mockStore.Object, mockTurnStore.Object, mockFactory.Object);
 
         // Act
         await foreach (var _ in service.MainCallStreamAsync(session.Id, "What is 2+2?"))
@@ -56,7 +57,8 @@ public class ReasoningServiceTests
             }));
 
         var mockFactory = CreateMockFactory(mockOpenAi.Object);
-        var service = new ReasoningService(mockStore.Object, mockFactory.Object);
+        var mockTurnStore = new Mock<ITurnStore>();
+        var service = new ReasoningService(mockStore.Object, mockTurnStore.Object, mockFactory.Object);
 
         // Act
         await foreach (var _ in service.MainCallStreamAsync(session.Id, "What is 2+2?"))
@@ -89,7 +91,8 @@ public class ReasoningServiceTests
             }));
 
         var mockFactory = CreateMockFactory(mockOpenAi.Object);
-        var service = new ReasoningService(mockStore.Object, mockFactory.Object);
+        var mockTurnStore = new Mock<ITurnStore>();
+        var service = new ReasoningService(mockStore.Object, mockTurnStore.Object, mockFactory.Object);
 
         // Act
         var events = new List<ReasoningStreamEvent>();
@@ -98,15 +101,15 @@ public class ReasoningServiceTests
             events.Add(evt);
         }
 
-        // Assert - Should have reasoning events
-        var reasoningEvents = events.Where(e => e.Type == StreamEventType.Reasoning).ToList();
-        Assert.Equal(2, reasoningEvents.Count);
-        Assert.Equal("Let me think...", reasoningEvents[0].Content);
-        Assert.Equal(" 2+2 is 4", reasoningEvents[1].Content);
+        // Assert - Should have thought events
+        var thoughtEvents = events.Where(e => e.Type == StreamEventType.Thought).ToList();
+        Assert.Equal(2, thoughtEvents.Count);
+        Assert.Equal("Let me think...", thoughtEvents[0].Text);
+        Assert.Equal(" 2+2 is 4", thoughtEvents[1].Text);
     }
 
     [Fact]
-    public async Task MainCallStream_EmitsDelimiterBeforeAnswer()
+    public async Task MainCallStream_EmitsDoneEventAtEnd()
     {
         // Arrange
         var mockStore = new Mock<ISessionStore>();
@@ -123,7 +126,8 @@ public class ReasoningServiceTests
             }));
 
         var mockFactory = CreateMockFactory(mockOpenAi.Object);
-        var service = new ReasoningService(mockStore.Object, mockFactory.Object);
+        var mockTurnStore = new Mock<ITurnStore>();
+        var service = new ReasoningService(mockStore.Object, mockTurnStore.Object, mockFactory.Object);
 
         // Act
         var events = new List<ReasoningStreamEvent>();
@@ -132,14 +136,11 @@ public class ReasoningServiceTests
             events.Add(evt);
         }
 
-        // Assert - Should have delimiter before answer
-        Assert.Contains(events, e => e.Type == StreamEventType.Delimiter);
-        Assert.Equal("---FINAL ANSWER---", events.First(e => e.Type == StreamEventType.Delimiter).Content);
-
-        // Delimiter should come after reasoning and before answer
-        var delimiterIndex = events.FindIndex(e => e.Type == StreamEventType.Delimiter);
-        Assert.True(delimiterIndex > 0); // After reasoning
-        Assert.True(delimiterIndex < events.Count - 1); // Before answer
+        // Assert - Should have done event as last event
+        Assert.Contains(events, e => e.Type == StreamEventType.Done);
+        var doneEvent = events.Last();
+        Assert.Equal(StreamEventType.Done, doneEvent.Type);
+        Assert.Equal(string.Empty, doneEvent.Text);
     }
 
     [Fact]
@@ -160,7 +161,8 @@ public class ReasoningServiceTests
             }));
 
         var mockFactory = CreateMockFactory(mockOpenAi.Object);
-        var service = new ReasoningService(mockStore.Object, mockFactory.Object);
+        var mockTurnStore = new Mock<ITurnStore>();
+        var service = new ReasoningService(mockStore.Object, mockTurnStore.Object, mockFactory.Object);
 
         // Act
         await foreach (var _ in service.MainCallStreamAsync(session.Id, "Test?"))
@@ -192,7 +194,8 @@ public class ReasoningServiceTests
             }));
 
         var mockFactory = CreateMockFactory(mockOpenAi.Object);
-        var service = new ReasoningService(mockStore.Object, mockFactory.Object);
+        var mockTurnStore = new Mock<ITurnStore>();
+        var service = new ReasoningService(mockStore.Object, mockTurnStore.Object, mockFactory.Object);
 
         // Act
         var events = new List<ReasoningStreamEvent>();
