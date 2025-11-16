@@ -406,3 +406,7 @@ appsettings.*.json
 *.env
 *.env.*
 secrets.json
+# Infrastructure build artifacts
+deployment-output.json
+infra/main.json
+infra/scripts/deployment-config.txt
