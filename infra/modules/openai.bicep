@@ -29,25 +29,25 @@ param publicNetworkAccess string = 'Disabled'
 param skuName string = 'S0'
 
 @description('Name for the reasoning model deployment')
-param reasoningDeploymentName string = 'o3-pro'
+param reasoningDeploymentName string = 'gpt-4o'
 
 @description('Model name for reasoning deployment')
-param reasoningModelName string = 'o3-pro'
+param reasoningModelName string = 'gpt-4o'
 
 @description('Model version for reasoning deployment')
-param reasoningModelVersion string = '2025-01-31'
+param reasoningModelVersion string = '2024-08-06'
 
 @description('Capacity (in thousands of tokens per minute) for reasoning deployment')
 param reasoningCapacity int = 10
 
 @description('Name for the digression model deployment')
-param digressionDeploymentName string = 'gpt-5-1'
+param digressionDeploymentName string = 'gpt-35-turbo'
 
 @description('Model name for digression deployment')
-param digressionModelName string = 'gpt-5.1'
+param digressionModelName string = 'gpt-35-turbo'
 
 @description('Model version for digression deployment')
-param digressionModelVersion string = '2025-02-01'
+param digressionModelVersion string = '0125'
 
 @description('Capacity (in thousands of tokens per minute) for digression deployment')
 param digressionCapacity int = 10
@@ -122,9 +122,6 @@ resource digressionDeployment 'Microsoft.CognitiveServices/accounts/deployments@
 
 @description('The endpoint URL for Azure OpenAI')
 output openAiEndpoint string = openAiAccount.properties.endpoint
-
-@description('The primary API key for Azure OpenAI (store in Key Vault)')
-output openAiKey string = openAiAccount.listKeys().key1
 
 @description('The name of the reasoning model deployment')
 output reasoningDeploymentName string = reasoningDeployment.name

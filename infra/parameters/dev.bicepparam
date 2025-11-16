@@ -17,7 +17,7 @@ using '../main.bicep'
 // ============================================================================
 
 param environmentName = 'dev'
-param location = 'westus3'
+param location = 'eastus'
 param projectName = 'holdthread'
 
 // Enable public access for easier local development

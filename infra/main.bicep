@@ -77,13 +77,14 @@ module openAi 'modules/openai.bicep' = {
     location: location
     tags: tags
     publicNetworkAccess: enablePublicAccess ? 'Enabled' : 'Disabled'
-    reasoningDeploymentName: 'o3-pro'
-    reasoningModelName: 'o3-pro'
-    reasoningModelVersion: '2025-01-31'
+    // Using GPT-4o-mini for both (good performance, better quota availability)
+    reasoningDeploymentName: 'gpt-4o-mini-reasoning'
+    reasoningModelName: 'gpt-4o-mini'
+    reasoningModelVersion: '2024-07-18'
     reasoningCapacity: 10
-    digressionDeploymentName: 'gpt-5-1'
-    digressionModelName: 'gpt-5.1'
-    digressionModelVersion: '2025-02-01'
+    digressionDeploymentName: 'gpt-4o-mini-digression'
+    digressionModelName: 'gpt-4o-mini'
+    digressionModelVersion: '2024-07-18'
     digressionCapacity: 10
   }
 }
@@ -117,10 +118,6 @@ output resourceGroupName string = resourceGroupName
 @description('Azure OpenAI endpoint URL')
 output openAiEndpoint string = openAi.outputs.openAiEndpoint
 
-@description('Azure OpenAI API key (SENSITIVE - store in Key Vault)')
-@secure()
-output openAiKey string = openAi.outputs.openAiKey
-
 @description('Reasoning model deployment name')
 output reasoningDeploymentName string = openAi.outputs.reasoningDeploymentName
 
@@ -135,21 +132,6 @@ output keyVaultName string = keyVault.outputs.keyVaultName
 
 @description('OpenAI account name')
 output openAiAccountName string = openAi.outputs.openAiAccountName
-
-// ============================================================================
-// Configuration Summary (for appsettings/user secrets)
-// ============================================================================
-
-output configurationSummary object = {
-  AzureOpenAI: {
-    Endpoint: openAi.outputs.openAiEndpoint
-    ReasoningDeployment: openAi.outputs.reasoningDeploymentName
-    DigressionDeployment: openAi.outputs.digressionDeploymentName
-  }
-  KeyVault: {
-    VaultUri: keyVault.outputs.keyVaultUri
-  }
-}
 
 // ============================================================================
 // Post-Deployment Steps

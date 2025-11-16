@@ -20,7 +20,7 @@ set -e  # Exit on error
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(dirname "$SCRIPT_DIR")"
-LOCATION="westus3"
+LOCATION="eastus"
 
 # Colors for output
 RED='\033[0;31m'
@@ -149,13 +149,13 @@ DEPLOYMENT_NAME="holdthread-${ENVIRONMENT}-$(date +%Y%m%d-%H%M%S)"
 echo "Deployment name: $DEPLOYMENT_NAME"
 echo ""
 
-# Deploy with Bicep
+# Deploy with Bicep (with verbose output for debugging)
 az deployment sub create \
     --name "$DEPLOYMENT_NAME" \
     --location "$LOCATION" \
     --template-file "$TEMPLATE_FILE" \
     --parameters "$PARAM_FILE" \
-    --output json > deployment-output.json
+    --verbose
 
 if [ $? -eq 0 ]; then
     print_success "Infrastructure deployed successfully"
@@ -170,13 +170,28 @@ fi
 
 print_header "Deployment Outputs"
 
-RESOURCE_GROUP=$(jq -r '.properties.outputs.resourceGroupName.value' deployment-output.json)
-OPENAI_ENDPOINT=$(jq -r '.properties.outputs.openAiEndpoint.value' deployment-output.json)
-OPENAI_KEY=$(jq -r '.properties.outputs.openAiKey.value' deployment-output.json)
-REASONING_DEPLOYMENT=$(jq -r '.properties.outputs.reasoningDeploymentName.value' deployment-output.json)
-DIGRESSION_DEPLOYMENT=$(jq -r '.properties.outputs.digressionDeploymentName.value' deployment-output.json)
-KEYVAULT_URI=$(jq -r '.properties.outputs.keyVaultUri.value' deployment-output.json)
-KEYVAULT_NAME=$(jq -r '.properties.outputs.keyVaultName.value' deployment-output.json)
+print_info "Retrieving deployment outputs..."
+
+# Query the deployment outputs separately to avoid response consumption issues
+az deployment sub show \
+    --name "$DEPLOYMENT_NAME" \
+    --query properties.outputs \
+    --output json > deployment-output.json
+
+RESOURCE_GROUP=$(jq -r '.resourceGroupName.value' deployment-output.json)
+OPENAI_ENDPOINT=$(jq -r '.openAiEndpoint.value' deployment-output.json)
+OPENAI_ACCOUNT_NAME=$(jq -r '.openAiAccountName.value' deployment-output.json)
+REASONING_DEPLOYMENT=$(jq -r '.reasoningDeploymentName.value' deployment-output.json)
+DIGRESSION_DEPLOYMENT=$(jq -r '.digressionDeploymentName.value' deployment-output.json)
+KEYVAULT_URI=$(jq -r '.keyVaultUri.value' deployment-output.json)
+KEYVAULT_NAME=$(jq -r '.keyVaultName.value' deployment-output.json)
+
+# Retrieve the API key directly from Azure (avoids Bicep listKeys() issues)
+print_info "Retrieving OpenAI API key..."
+OPENAI_KEY=$(az cognitiveservices account keys list \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$OPENAI_ACCOUNT_NAME" \
+    --query key1 -o tsv)
 
 echo "Resource Group:          $RESOURCE_GROUP"
 echo "OpenAI Endpoint:         $OPENAI_ENDPOINT"
