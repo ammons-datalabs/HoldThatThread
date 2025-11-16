@@ -1,0 +1,22 @@
+# Ensure shell scripts always use LF line endings
+*.sh text eol=lf
+
+# Ensure Bicep files use LF line endings
+*.bicep text eol=lf
+*.bicepparam text eol=lf
+
+# Standard text file handling
+*.cs text diff=csharp
+*.csproj text
+*.sln text
+*.md text
+*.json text
+*.yml text
+*.yaml text
+
+# Binary files
+*.dll binary
+*.exe binary
+*.png binary
+*.jpg binary
+*.jpeg binary
